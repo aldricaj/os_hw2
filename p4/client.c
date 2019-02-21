@@ -5,23 +5,12 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include "shared_mem.h"
+
 
 const int MAX_FILE_BUFFER = 256;
-const char* PIPE_NAME = "/tmp/hw2_p3_a";
 
-int getPipeFD() {
-	printf("GEtting pipe\n");
-	int fd = open(PIPE_NAME, O_WRONLY);
-	if (fd == -1) {
-		printf("Creating Pipe\n");
-		fd = mkfifo(PIPE_NAME, S_IWUSR | S_IRUSR |
-	    		S_IRGRP | S_IROTH);	
-
-	}
-	return fd;
-}
-
-char* upper(char* textBuffer) {
+int upper(char* textBuffer) {
 	int i = 0;
 	while (textBuffer[i] != '\0') {
 		char c = textBuffer[i];
@@ -30,31 +19,41 @@ char* upper(char* textBuffer) {
 		}
 		i++;
 	}
-	return textBuffer;
+	return i;
 }
 
-void sendToServer(int pipeId, char* message) {
+void sendToServer(struct SharedMemBlock b, char* message) {
 	
-	upper(message);
+	int len = upper(message);
+	
+
+
 	printf("Sending Msg: %s\n", message);
-	write(pipeId,message, MAX_FILE_BUFFER);
+	while (writeTo(b, message, len) != 1) {
+		sleep(1);
+	}
 }
 
 void run(char* fileName) {
 	FILE* fd = fopen(fileName, "r");
+	
+	struct SharedMemBlock b = createSharedBlock();
 
 	char lineBuffer[MAX_FILE_BUFFER];
-	int pfd = getPipeFD();
 	while(fgets(lineBuffer, MAX_FILE_BUFFER, fd) != NULL) {
-		sendToServer(pfd, lineBuffer);
+		sendToServer(b, lineBuffer);
 		sleep(1);	
 	}
 	char stop[] = {'s','t','o','p','\0'};
-	sendToServer(pfd, stop);
-	close(pfd);
+	sendToServer(b, stop);
+	detach(b);
+	fclose(fd);
 }
 
-void main() {
+void main(char* args[], int nargs) {
 	printf("Welcome\n");
-	run("test.txt");
+	if (nargs < 2)
+		run("test.txt");
+	else
+		run(args[1]);
 }

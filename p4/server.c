@@ -5,24 +5,17 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-
+#include "shared_mem.h"
+#include <string.h>
 const int MAX_BUFFER = 256;
-const char* PIPE_NAME = "/tmp/hw2_p3_a";
 
-int getPipeFD() {
-	int fd = open(PIPE_NAME, O_RDONLY);
-	if (fd == -1) {
-		fd = mkfifo(PIPE_NAME, S_IWUSR | S_IRUSR |
-	    		S_IRGRP | S_IROTH);	
-
-	}
-	return fd;
-}
-
-int recieve(int pipeId) {
+int recieve(struct SharedMemBlock b) {
 	char buffer[MAX_BUFFER];
 	char stop[] = {'S','T','O','P','\0'};
-	read(pipeId, buffer, MAX_BUFFER);
+
+	while (readFrom(b, buffer, MAX_BUFFER) < 0) {
+		sleep(1);
+	}
 	
 	int i = 0;
 	int result = 1;
@@ -33,22 +26,22 @@ int recieve(int pipeId) {
 		i++;
 	}
 	
-	if (result == 0) printf(buffer);
+	if (result == 0) printf("%s",buffer);
+	memset(buffer, 0, MAX_BUFFER);
 	return result;
 }
 
 void run() {
 	printf("Welcome!\n");
-	int fd = getPipeFD();
+	struct SharedMemBlock b = createSharedBlock();
 	while (1==1) {
-		int response = recieve(fd);
+		int response = recieve(b);
 		if (response == 1) {
 			break;
 		}
 		sleep(1);
 	}
-	close(fd);
-	unlink(PIPE_NAME);
+	removeShardBlock(b);
 }
 
 void main() {

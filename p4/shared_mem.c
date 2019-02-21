@@ -22,6 +22,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+int getMemSize() {
+	        return sizeof('a') * SM_MAX_ELEM + SM_RES_BLOC;
+}
+
+
 struct SharedMemBlock createSharedBlock() {
 	struct SharedMemBlock block;
 	printf("Creating memory Block\n");	
@@ -61,20 +66,48 @@ void detach(struct SharedMemBlock block) {
 	shmdt(block.writeIndex);
 }
 
-void removeSharedBlock(struct SharedMemBlock block) {
+void removeShardBlock(struct SharedMemBlock block) {
 	shmdt(block.writeIndex);
 	shmctl(block.shmid, IPC_RMID, NULL);
 }
 
 
 int writeTo(struct SharedMemBlock block, char* data, int dataLen) {
+	int in = (int) *block.writeIndex;
+	int out = (int) *block.readIndex;
+	
+	if (!((in + dataLen) % SM_MAX_ELEM < out || in + dataLen >= out)) {
+		return -1;
+	}
+	
+	// write to array
+	for (int i = 0; i < dataLen; i++) {
+		block.start[(in + i) % block.len] = data[i];
+	}
+	block.writeIndex[0] = (in + dataLen) % block.len;
 	return 1;
 }
 
 int readFrom(struct SharedMemBlock block, char* buffer, int buffLen) {
+	int in = (int) *block.writeIndex;
+	int out = (int) *block.readIndex;
+
+	if (in == out) {
+		return -1;
+	}
+	int index = 0;
+	while (out % block.len != in && index < buffLen) {
+		buffer[index] = block.start[out % block.len];
+		out++;
+		index++;
+	}
+	block.readIndex[0] = (out) % block.len;
+		
+	if (in != out) {
+		return 0; // represents non-empty buffer
+	}
 	return 1;
 }
-
 void updateBlock(struct SharedMemBlock block, int newWrite, int newRead) {
 
 }
@@ -91,15 +124,19 @@ void printBlock(struct SharedMemBlock b) {
 		printf("%i:\t%i\n", i, b.start[i]);
 	}
 }
-
+/*
 void run(int parent) {
 	struct SharedMemBlock b = createSharedBlock();
 	printBlock(b);
-	
-	b.readIndex[0] = 1;
-	printBlock(b);
-	if (parent == 1) { 
+	if (parent == 1) {
+		char arr[2]; 
+		readFrom(b, arr, 2);
+		printf("%s\n", arr);
+		printBlock(b);
 		removeSharedBlock(b);
+	} else {
+		char arr[3] = {'H','i','\0'};
+		writeTo(b, arr, 3);
 	}
 
 }
@@ -113,3 +150,4 @@ void main() {
 		run(1);
 	}
 }
+*/

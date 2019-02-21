@@ -17,10 +17,6 @@
 #define SM_RES_BLOC 2
 #define SM_MEM_KEY 8080
 
-int getMemSize() {
-	return sizeof('a') * SM_MAX_ELEM + SM_RES_BLOC;
-}
-
 struct SharedMemBlock {
 	char* writeIndex;
 	char* readIndex;
@@ -37,6 +33,4 @@ int writeTo(struct SharedMemBlock block, char* data, int dataLen);
 
 int readFrom(struct SharedMemBlock, char* buffer, int buffLen);
 
-void updateBlock(struct SharedMemBlock, int newWrite, int newRead);
-
-int calcNextIndex(int currIndex, int steps);
+void detach(struct SharedMemBlock block);
